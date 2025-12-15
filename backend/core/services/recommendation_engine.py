@@ -170,7 +170,8 @@ class RecommendationEngine:
         user_lng: Optional[float] = None,
         filters: Optional[Dict] = None,
         recent_restaurants: List[int] = None,
-        favorite_restaurants: List[int] = None
+        favorite_restaurants: List[int] = None,
+        limit: int = 3
     ) -> List[Dict]:
         
         max_budget = self.extract_budget(query)
@@ -211,6 +212,9 @@ class RecommendationEngine:
         
         scored.sort(key=lambda x: x[1], reverse=True)
         
-        top_results = [r[0] for r in scored[:3]]
+        if limit:
+            top_results = [r[0] for r in scored[:limit]]
+        else:
+            top_results = [r[0] for r in scored]
         
         return top_results

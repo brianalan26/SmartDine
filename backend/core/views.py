@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from decimal import Decimal
+import random
 
 from .models import Restaurant, Favorite, SearchHistory, SavedDiscovery
 from .serializers import (
@@ -189,31 +190,35 @@ def recommend(request):
         for r in restaurants
     ]
 
-    recommended = recommendation_engine.recommend(
+    all_recommended = recommendation_engine.recommend(
         restaurants=restaurant_dicts,
         query=query,
         user_lat=float(user_lat) if user_lat else None,
         user_lng=float(user_lng) if user_lng else None,
         filters=filters,
         recent_restaurants=recent_restaurant_ids,
-        favorite_restaurants=favorite_restaurant_ids
+        favorite_restaurants=favorite_restaurant_ids,
+        limit=None # Get all matches for the map
     )
 
-    if not recommended:
+    if not all_recommended:
         return Response({
             'restaurants': [],
             'explanation': 'No restaurants found matching your criteria in Coimbatore. Try adjusting your filters or search query.',
             'fallback': True
         })
 
+    # Only use top 3 for Gemini explanation
+    top_3_recommendations = all_recommended[:3]
+
     explanation = gemini_service.generate_recommendation_explanation(
         user_query=query,
-        restaurants=recommended,
+        restaurants=top_3_recommendations,
         conversation_history=conversation_history
     )
 
     if not explanation:
-        explanation = f"Here are {len(recommended)} great options for your request. Each one offers something special!"
+        explanation = f"Here are {len(top_3_recommendations)} great options for your request. Each one offers something special!"
 
     if request.user.is_authenticated:
         SearchHistory.objects.create(
@@ -223,19 +228,25 @@ def recommend(request):
             user_location_lng=Decimal(str(user_lng)) if user_lng else None
         )
 
+    # Return ALL recommended restaurants for the map population
     serializer = RestaurantSerializer(
-        [Restaurant.objects.get(id=r['id']) for r in recommended],
+        [Restaurant.objects.get(id=r['id']) for r in all_recommended],
         many=True,
         context={'request': request}
     )
 
     response_data = serializer.data
-    for i, item in enumerate(response_data):
-        if 'distance' in recommended[i]:
-            item['distance'] = str(recommended[i]['distance'])
+    # Map distances back to serializer data
+    # Create a mapping of id -> distance for O(1) lookup
+    dist_map = {r['id']: r.get('distance') for r in all_recommended}
+    
+    for item in response_data:
+        if item['id'] in dist_map and dist_map[item['id']] is not None:
+             item['distance'] = str(dist_map[item['id']])
 
     return Response({
-        'restaurants': response_data,
+        'restaurants': response_data, # All matching restaurants for Map
+        'top_restaurants': response_data[:3], # Top 3 if needed separately
         'explanation': explanation,
         'fallback': False
     })
@@ -244,52 +255,52 @@ def recommend(request):
 def surprise(request):
     user_lat = request.GET.get('latitude')
     user_lng = request.GET.get('longitude')
-    restaurants = Restaurant.objects.filter(rating__gte=4.0).order_by('?')
-
-    if user_lat and user_lng:
-        user_lat = float(user_lat)
-        user_lng = float(user_lng)
-        
-        nearby = []
-        for r in restaurants:
-            distance = recommendation_engine.calculate_distance(
-                user_lat, user_lng,
-                float(r.latitude), float(r.longitude)
-            )
-            if distance <= 10:
-                nearby.append((r, distance))
-        
-        if nearby:
-            nearby.sort(key=lambda x: x[1])
-            restaurant = nearby[0][0]
-        else:
-            restaurant = restaurants.first()
+    
+    # Get random high-rated restaurants
+    candidates = list(Restaurant.objects.filter(rating__gte=4.0))
+    if len(candidates) > 3:
+        selected_restaurants = random.sample(candidates, 3)
     else:
-        restaurant = restaurants.first()
+        selected_restaurants = candidates
 
-    if not restaurant:
+    if not selected_restaurants:
         return Response(
             {'error': 'No restaurants available'},
             status=status.HTTP_404_NOT_FOUND
         )
 
+    # Calculate distance if location provided
+    results = []
+    for r in selected_restaurants:
+        dist = None
+        if user_lat and user_lng:
+            dist = recommendation_engine.calculate_distance(
+                float(user_lat), float(user_lng),
+                float(r.latitude), float(r.longitude)
+            )
+        
+        results.append({
+            'restaurant': RestaurantSerializer(r, context={'request': request}).data,
+            'distance': dist
+        })
+
+    # Pick the "primary" one for the explanation
+    primary = selected_restaurants[0]
     restaurant_dict = {
-        'name': restaurant.name,
-        'special_recognition': restaurant.special_recognition,
-        'cuisines': restaurant.cuisines,
-        'must_try_dishes': restaurant.must_try_dishes,
-        'rating': float(restaurant.rating),
+        'name': primary.name,
+        'special_recognition': primary.special_recognition,
+        'cuisines': primary.cuisines,
+        'must_try_dishes': primary.must_try_dishes,
+        'rating': float(primary.rating),
     }
 
     explanation = gemini_service.generate_surprise_explanation(restaurant_dict)
-
     if not explanation:
-        explanation = f"Try {restaurant.name}! {restaurant.special_recognition}"
-
-    serializer = RestaurantSerializer(restaurant, context={'request': request})
+        explanation = f"You should definitely try {primary.name}! It's known for {primary.special_recognition}."
 
     return Response({
-        'restaurant': serializer.data,
+        'restaurants': [r['restaurant'] for r in results], # Send list of restaurants
+        'restaurant': results[0]['restaurant'], # Keep backward compatibility content
         'explanation': explanation
     })
 @api_view(['GET', 'POST', 'DELETE'])

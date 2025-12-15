@@ -78,12 +78,19 @@ export default function ChatInterface({
 
     const handleSurprise = async () => {
         setLoading(true)
-        setMessages((prev) => [...prev, { type: 'user', text: 'Surprise me!' }])
+        setMessages((prev) => [...prev, { type: 'user', text: '✨ Surprise me!' }])
 
         try {
             const data = await api.getSurprise(userLocation?.[0], userLocation?.[1])
 
-            if (data.restaurant) {
+            if (data.restaurants && data.restaurants.length > 0) {
+                onRecommendations(data.restaurants)
+                setMessages((prev) => [
+                    ...prev,
+                    { type: 'assistant', text: data.explanation },
+                ])
+            } else if (data.restaurant) {
+                // Fallback for backward compatibility
                 onRecommendations([data.restaurant])
                 setMessages((prev) => [
                     ...prev,
@@ -95,7 +102,7 @@ export default function ChatInterface({
                 ...prev,
                 {
                     type: 'assistant',
-                    text: 'Could not find a surprise for you right now. Try again!',
+                    text: 'My chef brain is taking a nap. Try again in a second!',
                 },
             ])
         } finally {
@@ -103,31 +110,45 @@ export default function ChatInterface({
         }
     }
 
+    const suggestionChips = [
+        "Cheap spicy snacks",
+        "Family dinner tonight",
+        "Best Biryani near me",
+        "Romantic date spots",
+        "Late night cravings"
+    ]
+
     return (
-        <div className="h-full flex flex-col bg-gray-50">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="h-full flex flex-col bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {messages.map((message, index) => (
                     <div
                         key={index}
                         className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
+                        {message.type === 'assistant' && (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center text-white text-xs mr-2 shadow-sm shrink-0">
+                                AI
+                            </div>
+                        )}
                         <div
-                            className={`max-w-[80%] p-3 rounded-lg ${message.type === 'user'
-                                    ? 'bg-primary text-white'
-                                    : 'bg-white text-gray-800 shadow-sm'
+                            className={`max-w-[85%] p-4 rounded-2xl shadow-sm text-sm leading-relaxed ${message.type === 'user'
+                                ? 'bg-gradient-to-r from-primary to-orange-600 text-white rounded-br-none'
+                                : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
                                 }`}
                         >
-                            <p className="text-sm leading-relaxed">{message.text}</p>
+                            <div dangerouslySetInnerHTML={{ __html: message.text.replace(/\n/g, '<br/>') }} />
                         </div>
                     </div>
                 ))}
                 {loading && (
                     <div className="flex justify-start">
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 mr-2 shrink-0 animate-pulse" />
+                        <div className="bg-white p-4 rounded-2xl rounded-bl-none shadow-sm border border-gray-100">
                             <div className="flex space-x-2">
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                             </div>
                         </div>
                     </div>
@@ -135,37 +156,54 @@ export default function ChatInterface({
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 bg-white border-t border-gray-200">
-                <div className="mb-3">
+            <div className="p-4 bg-white border-t border-gray-100">
+                {/* Suggestions */}
+                <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
+                    {suggestionChips.map((chip) => (
+                        <button
+                            key={chip}
+                            onClick={() => {
+                                setInput(chip)
+                                // Optional: auto-submit
+                            }}
+                            className="whitespace-nowrap px-4 py-1.5 bg-orange-50 text-orange-700 text-xs rounded-full hover:bg-orange-100 transition-colors border border-orange-100"
+                        >
+                            {chip}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex gap-3">
                     <button
                         onClick={handleSurprise}
                         disabled={loading}
-                        className="w-full py-2 px-4 bg-gradient-to-r from-orange-400 to-red-400 text-white rounded-lg hover:from-orange-500 hover:to-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                        className="p-3 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-colors border border-yellow-200"
+                        title="Surprise Me!"
                     >
-                        ✨ Surprise Me!
+                        ✨
                     </button>
+
+                    <form onSubmit={handleSubmit} className="flex-1 flex gap-2">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Ask about food, cravings, or mood..."
+                            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm transition-all"
+                            disabled={loading}
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading || !input.trim()}
+                            className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-orange-600 transition-all font-medium shadow-md shadow-orange-100 disabled:opacity-50 disabled:shadow-none"
+                        >
+                            Send
+                        </button>
+                    </form>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="What are you craving?"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
-                        disabled={loading}
-                    />
-                    <button
-                        type="submit"
-                        disabled={loading || !input.trim()}
-                        className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                    >
-                        Send
-                    </button>
-                </form>
-
-                <p className="mt-3 text-xs text-center text-gray-500 italic">
-                    "Biryani is life"
+                <p className="mt-3 text-[10px] text-center text-gray-400 uppercase tracking-widest font-medium">
+                    SmartDine Assistant
                 </p>
             </div>
         </div>

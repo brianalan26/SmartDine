@@ -12,6 +12,8 @@ interface Restaurant {
     swiggy_link: string
     zomato_link: string
     distance?: string
+    latitude: string
+    longitude: string
 }
 
 interface RestaurantDetailProps {
@@ -88,12 +90,12 @@ export default function RestaurantDetail({
 
                 <div className="space-y-2">
                     <a
-                        href={restaurant.google_maps_link}
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${restaurant.latitude},${restaurant.longitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block w-full py-2 px-4 bg-blue-500 text-white text-center rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                     >
-                        📍 Navigate
+                        📍 Navigate To Restaurant
                     </a>
 
                     {restaurant.swiggy_link && (

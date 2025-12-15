@@ -8,3 +8,11 @@ venv/
 
 # Node dependencies
 node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Frontend dependencies & build cache
+frontend/node_modules/
+frontend/.vite/

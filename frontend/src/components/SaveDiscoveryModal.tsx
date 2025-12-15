@@ -7,7 +7,6 @@ interface SaveDiscoveryModalProps {
 
 export default function SaveDiscoveryModal({ onClose }: SaveDiscoveryModalProps) {
     const [restaurantName, setRestaurantName] = useState('')
-    const [area, setArea] = useState('')
     const [source, setSource] = useState('instagram')
     const [googleMapsLink, setGoogleMapsLink] = useState('')
     const [imageUrl, setImageUrl] = useState('')
@@ -20,10 +19,16 @@ export default function SaveDiscoveryModal({ onClose }: SaveDiscoveryModalProps)
         setError('')
         setLoading(true)
 
+        if (!notes.trim()) {
+            setError('Please tell us why you saved this place.')
+            setLoading(false)
+            return
+        }
+
         try {
             await api.saveDiscovery({
                 restaurant_name: restaurantName,
-                area,
+                area: "Coimbatore", // Default value as field is required but removed from UI
                 source,
                 google_maps_link: googleMapsLink,
                 image_url: imageUrl,
@@ -39,59 +44,47 @@ export default function SaveDiscoveryModal({ onClose }: SaveDiscoveryModalProps)
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Save a Discovery</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
+            <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl transform transition-all">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Save a Discovery</h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                        className="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors"
                     >
                         ×
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+                        <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium">
                             {error}
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Restaurant Name *
                         </label>
                         <input
                             type="text"
                             value={restaurantName}
                             onChange={(e) => setRestaurantName(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            placeholder="e.g. Annapoorna"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Area *
-                        </label>
-                        <input
-                            type="text"
-                            value={area}
-                            onChange={(e) => setArea(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Source *
                         </label>
                         <select
                             value={source}
                             onChange={(e) => setSource(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                         >
                             <option value="instagram">Instagram</option>
                             <option value="friend">Friend Recommendation</option>
@@ -102,58 +95,74 @@ export default function SaveDiscoveryModal({ onClose }: SaveDiscoveryModalProps)
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Google Maps Link
-                        </label>
-                        <input
-                            type="url"
-                            value={googleMapsLink}
-                            onChange={(e) => setGoogleMapsLink(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                            placeholder="https://maps.google.com/..."
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Image URL
-                        </label>
-                        <input
-                            type="url"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                            placeholder="https://..."
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Personal Notes
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Why did you save this place? *
                         </label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
-                            placeholder="What caught your attention..."
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition-all"
+                            placeholder="Must try the ghee roast..."
+                            required
                         />
                     </div>
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="pt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const details = document.getElementById('optional-details');
+                                if (details) details.classList.toggle('hidden');
+                            }}
+                            className="text-sm text-primary font-medium hover:underline mb-4 inline-block"
+                        >
+                            + Add Link or Image (Optional)
+                        </button>
+
+                        <div id="optional-details" className="hidden space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Google Maps Link
+                                </label>
+                                <input
+                                    type="url"
+                                    value={googleMapsLink}
+                                    onChange={(e) => setGoogleMapsLink(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                    placeholder="https://maps.google.com/..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Image URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={imageUrl}
+                                    onChange={(e) => setImageUrl(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                    placeholder="https://..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex-1 py-3 px-4 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 py-2 px-4 bg-primary text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 py-3 px-4 bg-primary text-white font-medium rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-100 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Saving...' : 'Save'}
+                            {loading ? 'Saving...' : 'Save Discovery'}
                         </button>
                     </div>
                 </form>
